@@ -4,10 +4,11 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"runtime"
 )
 
-// Prepares the environment with variables according to a .env file.
-func PrepareEnv() error {
+// Prepares the environment variables according to a .env file.
+func Prepare() error {
 	return errors.New("")
 }
 
@@ -36,10 +37,15 @@ func mapEnvVars(fileContents string) (map[string]string, error) {
 	lines := strings.Split(string(contents), eol())
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.Split(line, "")[0] == "#" || line == "" {
+		if string(line[0]) == "#" || line == "" {
 			continue
 		}
+
 		parts := strings.Split(line, "=")
+		if len(parts) != 2 {
+			return nil, errors.New("invalid env file contents")
+		}
+
 		key := strings.TrimSpace(parts[0])
 		value := strings.TrimSpace(parts[1])
 		envMap[key] = value
@@ -50,7 +56,7 @@ func mapEnvVars(fileContents string) (map[string]string, error) {
 
 func eol() string {
 	eol := "\n"
-	if string(os.PathSeparator) != "/" {
+	if string(os.PathSeparator) != "/" || runtime.GOOS == "windows" {
 		eol = "\r\n"
 	}
 	return eol
