@@ -158,7 +158,7 @@ func mapVars(fileContents string) (envObject, error) {
 	lines := strings.Split(string(fileContents), eol())
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" || string(line[0]) == "#"  {
+		if line == "" || (len(line) > 0 && string(line[0]) == "#")  {
 			continue
 		}
 
