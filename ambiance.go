@@ -27,20 +27,35 @@ type envObject map[string]string
 // Prepares the environment variables according to a .env file.
 //
 // dirPath is the path to where the .env and sample files are located relative to the project's root.
-func Config(dirPath string) {
-	basePath = filepath.Join(cwd, dirPath)
-	determineSampleFilename(basePath)
+func Config(relativeDirPath string, useSampleAsTemplate bool) {
+	basePath = filepath.Join(cwd, relativeDirPath)
+	if useSampleAsTemplate {
+		err := determineSampleFilename(basePath)
+		if err != nil {
+			panic(err)
+		}
+	}
 	updatePaths(basePath)
-	if exist := filesExist(paths["main"], paths["sample"]); !exist {
-		panic("unable to find '.env' and/or sample file(s)")
+
+	if !fileExist(paths["main"]) {
+		panic("unable to find '.env' file")
 	}
 
-	mainMap, sampleMap := parseEnvFiles(paths["main"], paths["sample"])
-	if !keysMatch(mainMap, sampleMap) {
-		panic("environment variables from main file don't match with the ones from sample file")
+	mainMap, err := parseEnvFile(paths["main"])
+	if err != nil {
+		panic(err.Error() + " error parsing .env file")
+	}
+	if useSampleAsTemplate {
+		sampleMap, err := parseEnvFile(paths["sample"])
+		if err != nil {
+			panic(err.Error() + " error parsing sample file")
+		}
+		if !keysMatch(mainMap, sampleMap) {
+			panic("environment variables from main file differ from sample file")
+		}
 	}
 
-	err := setEnv(mainMap)
+	err = setEnv(mainMap)
 	if err != nil {
 		panic("error setting environment variables")
 	}
@@ -49,22 +64,45 @@ func Config(dirPath string) {
 // Checks if all environment variables are properly set, according to the sample file.
 //
 // dirPath is the relative path where sample file is located.
-func Check(dirPath string) error {
-	// @TODO
-	return errors.New("")
+func Check(relativeDirPath string, allowEmptyValues bool) {
+	basePath = filepath.Join(cwd, relativeDirPath)
+	err := determineSampleFilename(basePath)
+	if err != nil {
+		panic(err)
+	}
+	updatePaths(basePath)
+
+	sampleMap, err := parseEnvFile(paths["sample"])
+	if err != nil {
+		panic(err.Error() + " error parsing sample file")
+	}
+
+	for key := range sampleMap {
+		if val, isSet := os.LookupEnv(key); !isSet || val == "" {
+			if !isSet {
+				panic(key + " is not set")
+			} else {
+				if allowEmptyValues {
+					// do nothing
+				} else {
+					panic(key + " value is empty")
+				}
+			}
+		}
+	}
 }
 
-func determineSampleFilename(basePath string) {
+func determineSampleFilename(basePath string) error {
 	sample := filepath.Join(basePath, filenames["sample"])
 	example := filepath.Join(basePath, nameOption)
-
-	if _, err := os.Stat(sample); err == nil {
-		// do nothing, as sample filename is already correct
-	} else if _, err := os.Stat(example); err == nil {
+	if fileExist(sample) {
+		// do nothing - filenames["sample"] already has the correct value
+	} else if fileExist(example) {
 		filenames["sample"] = nameOption
 	} else {
-		panic(".env.sample or .env.example is missing")
+		return errors.New("missing sample file")
 	}
+	return nil
 }
 
 func updatePaths(dirPath string) {
@@ -72,37 +110,23 @@ func updatePaths(dirPath string) {
 	paths["sample"] = filepath.Join(dirPath, filenames["sample"])
 }
 
-func filesExist(mainPath, samplePath string) bool {
-	if _, err := os.Stat(mainPath); errors.Is(err, os.ErrNotExist) {
-		return false
-	} else if _, err1 := os.Stat(samplePath); errors.Is(err1, os.ErrNotExist) {
+func fileExist(filePath string) bool {
+	if _, err := os.Stat(filePath); errors.Is(err, os.ErrNotExist) {
 		return false
 	}
 	return true
 }
 
-func parseEnvFiles(mainPath, samplePath string) (envObject, envObject) {
-
-	mainContents, err := readTextFile(mainPath)
+func parseEnvFile(filePath string) (envObject, error) {
+	contents, err := readTextFile(filePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	mainMap, err := mapVars(mainContents)
+	varMap, err := mapVars(contents)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	sampleContents, err := readTextFile(samplePath)
-	if err != nil {
-		panic(err)
-	}
-	sampleMap, err := mapVars(sampleContents)
-	if err != nil {
-		panic(err)
-	}
-
-	return mainMap, sampleMap
-
+	return varMap, nil
 }
 
 func keysMatch(mainMap, sampleMap envObject) bool {
