@@ -1,5 +1,7 @@
 # Ambiance
 
+![v0.1.0](https://img.shields.io/badge/version-v0.1.0-blue)
+
 Use **.env** file in your project for setting up the environment variables.
 
 ## Usage
