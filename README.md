@@ -21,7 +21,7 @@ import (
 
 func init() {
 	// Pass as argument the relative path to the directory where the .env file will be located
-	ambiance.Config("./")
+	ambiance.Config("./", true)
 	ambiance.Check("./", false)
 }
 
@@ -32,9 +32,11 @@ func main() {
 
 ## API
 
-### `ambiance.Config(relativePath string)`
+### `ambiance.Config(relativePath string, useSampleAsTemplate bool)`
 
 Sets up the project's environment variables according to a `.env` file.
+
+If `useSampleAsTemplate` is set to `true`, it will look for a `env.sample` (or `.env.example`) as template.
 
 The program panics if anything goes wrong, like file not found.
 
